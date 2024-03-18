@@ -1,0 +1,287 @@
+import tkinter as tk
+from tkinter import messagebox
+from tkinter import ttk
+from tkinter import PhotoImage
+import sqlite3
+import re
+
+class VoteManager:
+    button_font = ("Helvetica", 12)
+
+
+    @staticmethod
+    def validate_email(email):
+        pattern = r'\b[a-zA-Z][a-zA-Z0-9._%+-]*@gmail\.com\b'
+        return re.match(pattern, email) is not None
+
+
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Vote Application")
+        self.master.geometry("600x500")
+
+        background_image = PhotoImage(file="Vote.png")
+
+        background_label = tk.Label(self.master, image=background_image, borderwidth=0, highlightthickness=0)
+        background_label.place(relwidth=1, relheight=1)
+
+        self.voters_data = []
+        
+        self.conn = sqlite3.connect('voter_database.db')
+        self.create_table()
+
+        self.menu_bar = tk.Menu(self.master)
+        self.master.config(menu=self.menu_bar)
+
+        # File Menu
+        file_menu = tk.Menu(self.menu_bar, tearoff=0)
+        file_menu.add_command(label='New')
+        self.menu_bar.add_cascade(label='File', menu=file_menu)
+
+        # Edit Menu
+        edit_menu = tk.Menu(self.menu_bar, tearoff=0)
+        edit_menu.add_command(label='Format')
+        edit_menu.add_command(label='Cut')
+        edit_menu.add_command(label='Copy')
+        edit_menu.add_command(label='Paste')
+        self.menu_bar.add_cascade(label='Edit', menu=edit_menu)
+
+        # Help Menu
+        help_menu = tk.Menu(self.menu_bar, tearoff=0)
+        help_menu.add_command(label="About Us", command=self.about_us)
+        help_menu.add_command(label="Documentation")
+        self.menu_bar.add_cascade(label='Help', menu=help_menu)
+
+        self.add_voter_button = tk.Button(self.master, text="Add Details", command=self.add_voter, width=15, height=2, font=VoteManager.button_font)
+        self.add_voter_button.pack(side=tk.LEFT, padx=5, pady=10)
+
+        self.select_voter_button = tk.Button(self.master, text="Vote", command=self.select_voter, width=15, height=2, font=VoteManager.button_font)
+        self.select_voter_button.pack(side=tk.LEFT, padx=10)
+
+        self.login_button = tk.Button(self.master, text="Output", command=self.login, width=15, height=2, font=VoteManager.button_font)
+        self.login_button.pack(side=tk.BOTTOM, padx=10)
+
+        background_label.image = background_image
+
+    def create_table(self):
+        self.cursor = self.conn.cursor()
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS voters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                age INTEGER,
+                contact TEXT,
+                email TEXT,
+                aadhaar TEXT,
+                location TEXT,
+                college TEXT
+            )
+        ''')
+        self.conn.commit()
+
+    def add_voter(self):
+        voter_window = tk.Toplevel(self.master)
+        voter_window.title("Add Voter")
+        voter_window.geometry("600x500")
+
+        personal_details_frame = tk.LabelFrame(voter_window, text="Personal Details", font=("Helvetica", 16, "bold"), borderwidth=0, highlightthickness=0)
+        personal_details_frame.pack(pady=30)
+
+        name_label = tk.Label(personal_details_frame, text="Enter Name:")
+        name_label.pack(pady=5)
+        name_entry = tk.Entry(personal_details_frame, width=30)
+        name_entry.pack(pady=5)
+
+        age_label = tk.Label(personal_details_frame, text="Select Age:")
+        age_label.pack(pady=5)
+
+        age_values = list(range(18, 26))
+        age_combobox = ttk.Combobox(personal_details_frame, values=age_values)
+        age_combobox.pack(pady=5)
+
+        contact_label = tk.Label(personal_details_frame, text="Enter Contact:")
+        contact_label.pack(pady=5)
+        contact_entry = tk.Entry(personal_details_frame, validate="key", validatecommand=(self.master.register(self.validate_contact), '%P'), width=30)
+        contact_entry.pack(pady=5)
+
+        email_label = tk.Label(personal_details_frame, text="Enter Email ID:")
+        email_label.pack(pady=5)
+        email_entry = tk.Entry(personal_details_frame, width=30)
+        email_entry.pack(pady=5)
+
+        aadhaar_label = tk.Label(personal_details_frame, text="Enter Aadhaar ID:")
+        aadhaar_label.pack(pady=5)
+        aadhaar_entry = tk.Entry(personal_details_frame, validate="key", validatecommand=(self.master.register(self.validate_aadhaar), '%P'), width=30)
+        aadhaar_entry.pack(pady=5)
+
+        location_button = tk.Button(personal_details_frame, text="Select Location ", width=15, height=2, font=VoteManager.button_font, command=lambda: self.select_location(voter_window, name_entry.get(), age_combobox.get(), contact_entry.get(), email_entry.get(), aadhaar_entry.get()))
+        location_button.pack(pady=10)
+
+        back_button = tk.Button(personal_details_frame, text="Back To Main Menu", command=voter_window.destroy, width=15, height=2, font=VoteManager.button_font)
+        back_button.pack(pady=10)
+
+    def select_location(self, voter_window, name, age, contact, email, aadhaar):
+        location_window = tk.Toplevel(self.master)
+        location_window.title("SELECT LOCATION")
+        location_window.geometry("500x400")
+
+        location_frame = tk.LabelFrame(location_window, text="", font=("Helvetica", 14, "bold"), borderwidth=0, highlightthickness=0)
+        location_frame.pack(pady=20)
+
+        location_label = tk.Label(location_frame, text="SELECT LOCATION", font=("Helvetica", 14, "bold"))
+        location_label.pack(pady=10)
+
+        locations = ["Andheri", "Andheri West", "Vile Parle", "Vile Parle East"]
+        location_combobox = ttk.Combobox(location_frame, values=locations)
+        location_combobox.pack(pady=5)
+
+        def load_colleges():
+            selected_location = location_combobox.get()
+            if selected_location:
+                colleges_frame = tk.Frame(location_window)
+                colleges_frame.pack(pady=10)
+
+                college_label = tk.Label(colleges_frame, text="SELECT YOUR JUNIOR COLLEGE", font=("Helvetica", 14, "bold"))
+                college_label.pack(pady=10)
+
+                colleges = ["ANDREW COLLEGE", "VALIA COLLEGE", "BHAVANS COLLEGE", "MITHIBAI COLLEGE"]
+
+                college_combobox = ttk.Combobox(colleges_frame, values=colleges)
+                college_combobox.pack(pady=5)
+
+                save_button = tk.Button(colleges_frame, text="Save Voter", width=15, height=2, font=VoteManager.button_font,
+                                        command=lambda: self.save_voter_data(voter_window, name, age, contact, email, aadhaar, selected_location, college_combobox.get()))
+                save_button.pack(pady=10)
+
+        location_button = tk.Button(location_frame, text="CONFIRM", width=15, height=2, font=VoteManager.button_font, command=load_colleges)
+        location_button.pack(pady=10)
+
+        location_window.protocol("WM_DELETE_WINDOW", lambda: (voter_window.destroy(), location_window.destroy()))
+
+    def validate_contact(self, contact):
+        return contact.isdigit() and len(contact) <= 10
+
+    def validate_aadhaar(self, aadhaar):
+        return aadhaar.isdigit() and len(aadhaar) <=12
+
+
+    def save_voter_data(self, voter_window, name, age, contact, email, aadhaar, location, college):
+        try:
+            if name and age and contact and email and aadhaar and location and college:
+                if not self.validate_email(email):
+                    messagebox.showerror("Error", "Invalid email address format!")
+                    return
+                voter_data = (name, int(age), contact, email, aadhaar, location, college)
+                self.cursor.execute('INSERT INTO voters (name, age, contact, email, aadhaar, location, college) VALUES (?, ?, ?, ?, ?, ?, ?)', voter_data)
+                self.conn.commit()
+
+                print(f"Voter data saved successfully!\nName: {name}\nAge: {age}\nContact: {contact}\nEmail: {email}\nAadhaar: {aadhaar}\nLocation: {location}\nCollege: {college}")
+                messagebox.showinfo("Success", "Voter data saved successfully!")
+                voter_window.destroy()
+            else:
+                raise ValueError("Please enter all details.")
+        except ValueError as e:
+            messagebox.showerror("Error", str(e))
+
+    def select_voter(self):
+        select_voter_window = tk.Toplevel(self.master)
+        select_voter_window.title("Select Voter")
+        select_voter_window.geometry("400x300")
+
+        select_voter_frame = tk.LabelFrame(select_voter_window, text="SELECT COLLEGE", font=("Helvetica", 14, "bold"), borderwidth=0, highlightthickness=0)
+        select_voter_frame.pack(pady=20)
+
+        college_options = ["MVLU College", "Chinai College", "Akash College", "Alpha College"]
+
+        selected_college = tk.StringVar(select_voter_window)
+
+        for college_option in college_options:
+            tk.Radiobutton(select_voter_frame, text=college_option, variable=selected_college, value=college_option).pack()
+
+        vote_button = tk.Button(select_voter_frame, text="Vote", command=lambda: self.complete_process(select_voter_window, selected_college.get()), width=20, height=2, font=VoteManager.button_font)
+        vote_button.pack(pady=10)
+
+    def complete_process(self, select_voter_window, selected_college):
+        if selected_college:
+            greeting_message = f"Thank you for voting for {selected_college}!"
+            print(greeting_message)
+            messagebox.showinfo("Greeting", greeting_message)
+            select_voter_window.destroy()
+        else:
+            messagebox.showerror("Error", "Please select a college.")
+
+    def show_voters(self):
+        show_voters_window = tk.Toplevel(self.master)
+        show_voters_window.title("Voter Data")
+        show_voters_window.geometry("800x600")
+
+        tree = ttk.Treeview(show_voters_window, columns=("ID", "Name", "Age", "Contact", "Email", "Aadhaar", "Location", "College"), show="headings")
+        tree.pack(pady=10)
+
+        tree.heading("ID", text="ID")
+        tree.heading("Name", text="Name")
+        tree.heading("Age", text="Age")
+        tree.heading("Contact", text="Contact")
+        tree.heading("Email", text="Email")
+        tree.heading("Aadhaar", text="Aadhaar")
+        tree.heading("Location", text="Location")
+        tree.heading("College", text="College")
+
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT * FROM voters")
+        voters_data = cursor.fetchall()
+
+        for voter in voters_data:
+            tree.insert("", "end", values=voter)
+
+        show_voters_window.protocol("WM_DELETE_WINDOW", lambda: show_voters_window.destroy())
+
+    def login(self):
+        login_window = tk.Toplevel(self.master)
+        login_window.title("Login")
+        login_window.geometry("300x150")
+
+        password_label = tk.Label(login_window, text="Enter Password:")
+        password_label.pack(pady=5)
+        password_entry = tk.Entry(login_window, show="*", width=20)
+        password_entry.pack(pady=5)
+
+        submit_button = tk.Button(login_window, text="Submit", command=lambda: self.check_password(login_window, password_entry.get()), width=15, height=2, font=VoteManager.button_font)
+        submit_button.pack(pady=10)
+
+    def validate_password(self, password):
+        return password.isdigit()
+
+    def check_password(self, login_window, entered_password):
+        correct_password = '1234'
+        if self.validate_password(entered_password):
+            if entered_password == correct_password:
+                self.show_voters()
+                login_window.destroy()
+            else:
+                messagebox.showerror("Error", "Incorrect password. Please try again.")
+        else:
+            messagebox.showerror("Error", "Password must consist of digits only.")
+
+    def about_us(self):
+        about_us_window = tk.Toplevel(self.master)
+        about_us_window.title("About Us")
+        about_us_window.geometry("300x150")
+
+        about_us_label = tk.Label(about_us_window, text='''This application was developed by Manjit singh on guidance of Mahendra sir
+                                  basically it a college voting system.
+                                  First your have to put your personal detail, location and your junior college
+                                  After that you have to vote colleges.
+                                  Thank You''', font=("Helvetica", 9))
+        about_us_label.pack(pady=20)
+
+    def __del__(self):
+        self.conn.close()
+
+def main():
+    root = tk.Tk()
+    app = VoteManager(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
